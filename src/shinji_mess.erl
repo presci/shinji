@@ -9,8 +9,13 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
+
+-export([create_queues/0]).
+
 -define(SERVER, ?MODULE). 
 -define(REPLY_TO, "replyqueue").
+-define(EXCHANGE, "shinjiexchange").
+-define(QUEUE, "shinjiqueue").
 
 
 start_link() ->
@@ -19,7 +24,6 @@ start_link() ->
 
 init([]) ->
     State = ets:new(corr_pid, [ordered_set, named_table]),
-    create_queues(),
     {ok, State}.
 
 handle_call(_Request, _From, State) ->
@@ -40,37 +44,33 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 create_queues()->
-    {ok, User} = application:get_env(rabbitmq_router, <<"guest">>),    
-    {ok, Password} = application:get_env(rabbitmq_router, <<"guest">>),
-    {ok, Vhost} = application:get_env(rabbitmq_router, <<"/">>),
-    {ok, Host} = application:get_env(rabbitmq_router, "localhost"),
-    {ok, Port} = application:get_env(rabbitmq_router, 5672),
-    {ok, Exchange} = application:get_env(rabbitmq_router, "RouterExchange"),
-    {ok, Queue} = application:get_env(rabbitmq_router, <<"RouterQueue">>),
-    Routing_key = routing_keys:get_routing_keys(),
-        ConnParams = #amqp_params{username=User, password=Password,
-				  virtual_host=Vhost, host=Host,
-				  port=Port},    
+    Routingkey = routingkeys:get_routing_keys(),
+    ConnParams = #amqp_params{username = <<"guest">> , 
+			      password = <<"guest">>,
+			      virtual_host = <<"/">>, 
+			      host = <<"localhost">>,
+			      port = 5672 },    
+    
     {ok, Connection} = amqp_connection:start(network, ConnParams),    
     {ok, Chann} = amqp_connection:open_channel(Connection),
     amqp_channel:call(Chann, 
 		      #'exchange.declare'{
-			exchange = Exchange, 
+			exchange = ?EXCHANGE, 
 			type = <<"x-recent-history">>, 
 			durable = true}),    
     amqp_channel:call(Chann, 
-		      #'queue.declare'{queue = Queue}),    
+		      #'queue.declare'{queue = ?QUEUE}),    
     amqp_channel:call(Chann, 
 		      #'queue.declare'{queue = ?REPLY_TO }),    
-    create_routing(Routing_key, Queue, Exchange, Chann).
+    create_routing(Routingkey, Chann).
 
-create_routing([{Method, Uri}|T], Queue, Exchange, Chann)->
+create_routing([{Method, Uri}|T], Chann)->
     J=string:join([Method, Uri], ":"),
     amqp_channel:call(Chann, 
 		      #'queue.bind'{
-			queue = Queue, 
-			exchange = Exchange, 
+			queue = ?QUEUE, 
+			exchange = ?EXCHANGE, 
 			routing_key = J}), 
-    create_routing(T, Queue, Exchange, Chann);
-create_routing([], _, _, _ ) ->
+    create_routing(T, Chann);
+create_routing([], _ ) ->
     ok.

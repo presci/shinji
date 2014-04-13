@@ -3,7 +3,7 @@
   {description, "Tcp Message router for Rabbitmq"},
   {vsn, "0.1"},
   {registered, []},
-  {modules, [ shinji_mess_sup, shinji_tcp_sup ]},
+  {modules, [shinji_sup, shinji_mess_sup, shinji_tcp_sup ]},
   {applications, [
                   kernel,
                   stdlib,
