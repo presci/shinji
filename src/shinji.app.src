@@ -1,0 +1,15 @@
+{application, shinji,
+ [
+  {description, "Tcp Message router for Rabbitmq"},
+  {vsn, "0.1"},
+  {registered, []},
+  {modules, [ shinji_mess_sup, shinji_tcp_sup ]},
+  {applications, [
+                  kernel,
+                  stdlib,
+		  shinji_tcp,
+		  shinji_mess
+                 ]},
+  {mod, { shinji_app, []}},
+  {env, []}
+ ]}.
