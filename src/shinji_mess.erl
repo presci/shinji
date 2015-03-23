@@ -45,31 +45,22 @@ code_change(_OldVsn, State, _Extra) ->
 
 create_queues()->
     Routingkey = routingkeys:get_routing_keys(),
-    ConnParams = #amqp_params{username = <<"guest">> , 
-			      password = <<"guest">>,
-			      virtual_host = <<"/">>, 
-			      host = <<"localhost">>,
-			      port = 5672 },    
-    
-    {ok, Connection} = amqp_connection:start(network, ConnParams),    
+    {ok, Connection} = amqp_connection:start(#amqp_params_network{}),
     {ok, Chann} = amqp_connection:open_channel(Connection),
-    amqp_channel:call(Chann, 
+    #'exchange.declare_ok'{} = amqp_channel:call(Chann, 
 		      #'exchange.declare'{
-			exchange = ?EXCHANGE, 
-			type = <<"x-recent-history">>, 
+			exchange = <<"shinjiexchange">>, 
+			type = <<"direct">>, 
 			durable = true}),    
-    amqp_channel:call(Chann, 
-		      #'queue.declare'{queue = ?QUEUE}),    
-    amqp_channel:call(Chann, 
-		      #'queue.declare'{queue = ?REPLY_TO }),    
     create_routing(Routingkey, Chann).
 
 create_routing([{Method, Uri}|T], Chann)->
-    J=string:join([Method, Uri], ":"),
+    J = list_to_binary(string:join([Method, Uri], ":")),
+    amqp_channel:call(Chann, #'queue.declare'{queue = J}),
     amqp_channel:call(Chann, 
 		      #'queue.bind'{
-			queue = ?QUEUE, 
-			exchange = ?EXCHANGE, 
+			queue = J, 
+			exchange = <<"shinjiexchange">>, 
 			routing_key = J}), 
     create_routing(T, Chann);
 create_routing([], _ ) ->
