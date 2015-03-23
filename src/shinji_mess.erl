@@ -54,14 +54,18 @@ create_queues()->
 			durable = true}),    
     create_routing(Routingkey, Chann).
 
-create_routing([{Method, Uri}|T], Chann)->
+create_routing([{Method, Uri, Queues}|T], Chann)->
     J = list_to_binary(string:join([Method, Uri], ":")),
-    amqp_channel:call(Chann, #'queue.declare'{queue = J}),
-    amqp_channel:call(Chann, 
-		      #'queue.bind'{
-			queue = J, 
-			exchange = <<"shinjiexchange">>, 
-			routing_key = J}), 
+    F = fun(Queue) ->
+		Que = list_to_binary(Queue),
+		amqp_channel:call(Chann, #'queue.declare'{queue = Que}),
+		amqp_channel:call(Chann, 
+				  #'queue.bind'{
+				     queue = Que, 
+				     exchange = <<"shinjiexchange">>, 
+				     routing_key = J})
+	end,
+    lists:map(F, Queues),
     create_routing(T, Chann);
 create_routing([], _ ) ->
     ok.
